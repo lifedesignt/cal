@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>目安光熱費シミュレーション（概算）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .card:hover {
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        .result-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .input-field {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: right;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .btn {
+            background-color: #4f46e5;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .price-tier-label {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .price-tier-label input[type="radio"] {
+           accent-color: #4f46e5;
+        }
+        /* Page break for PDF generation */
+        .pdf-page-break {
+            page-break-before: always;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <div id="capture-area" class="bg-white p-4 md:p-8">
+            <div id="pdf-page-1">
+                <!-- Header -->
+                <header class="text-center mb-8">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800">目安光熱費シミュレーション（概算）</h1>
+                    <p class="text-gray-600 mt-2">省エネ性能評価書を基に、年間の光熱費を計算します。</p>
+                </header>
+                
+                <!-- Residence Name -->
+                <div class="mb-8">
+                    <div class="card p-4 max-w-lg mx-auto">
+                         <div class="flex items-center justify-center space-x-4">
+                             <label for="residence-name" class="text-lg font-medium text-gray-700 whitespace-nowrap">邸名:</label>
+                            <input type="text" id="residence-name" class="w-full p-2 border border-gray-300 rounded-lg text-left text-xl" value="〇〇様邸">
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Input Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-8">
+                    <!-- Cards for Electricity, Gas, etc. -->
+                    <div class="card p-6"><div class="flex items-center mb-4"><div class="bg-yellow-100 p-2 rounded-full mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div><h2 class="text-xl font-semibold text-gray-700">電気料金</h2></div><div class="space-y-4 mt-auto"><div><label for="power-consumption" class="block text-sm font-medium text-gray-600 mb-1">年間消費量 (kWh)</label><input type="number" id="power-consumption" class="input-field" value="3339"></div><div><label for="electricity-price" class="block text-sm font-medium text-gray-600 mb-1">料金単価 (円/kWh)</label><input type="number" id="electricity-price" class="input-field" value="27"></div></div></div>
+                    <div class="card p-6"><div class="flex items-center mb-4"><div class="bg-blue-100 p-2 rounded-full mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7.C14 5 16.09 5.777 17.657 7.343A8 8 0 0118 17.657c-2.09.5-2.986 1.11-5.657 1-2.671-.11-4.986-1-5.657-2.657A8 8 0 0117.657 18.657z" /></svg></div><h2 class="text-xl font-semibold text-gray-700">都市ガス料金</h2></div><div class="space-y-4 mt-auto"><div><label for="gas-consumption" class="block text-sm font-medium text-gray-600 mb-1">年間消費量 (m³)</label><input type="number" id="gas-consumption" class="input-field" value="672"></div><div><label for="gas-price" class="block text-sm font-medium text-gray-600 mb-1">料金単価 (円/m³)</label><input type="number" id="gas-price" class="input-field" value="156"></div></div></div>
+                    <div class="card p-6"><div class="flex items-center mb-4"><div class="bg-orange-100 p-2 rounded-full mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7.C14 5 16.09 5.777 17.657 7.343A8 8 0 0118 17.657c-2.09.5-2.986 1.11-5.657 1-2.671-.11-4.986-1-5.657-2.657A8 8 0 0117.657 18.657z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l.44-2m2.06-4.56L15 11" /></svg></div><h2 class="text-xl font-semibold text-gray-700">LPガス料金</h2></div><div class="space-y-4 mt-auto"><div><label for="lpgas-consumption" class="block text-sm font-medium text-gray-600 mb-1">年間消費量 (m³)</label><input type="number" id="lpgas-consumption" class="input-field" value="0"></div><div><label for="lpgas-price" class="block text-sm font-medium text-gray-600 mb-1">料金単価 (円/m³)</label><input type="number" id="lpgas-price" class="input-field" value="706"></div></div></div>
+                    <div class="card p-6"><div class="flex items-center mb-4"><div class="bg-red-100 p-2 rounded-full mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5A2.5 2.5 0 005 10v9a2 2 0 002 2h10a2 2 0 002-2v-9a2.5 2.5 0 00-2.5-2.5h-1.372c-.36-1.503-1.802-2.5-3.628-2.5S8.232 5.997 7.872 7.5H7.5zM12 5a.5.5 0 01.5.5V6h-1v-.5a.5.5 0 01.5-.5z" /></svg></div><h2 class="text-xl font-semibold text-gray-700">灯油料金</h2></div><div class="space-y-4 mt-auto"><div><label for="kerosene-consumption" class="block text-sm font-medium text-gray-600 mb-1">年間消費量 (L)</label><input type="number" id="kerosene-consumption" class="input-field" value="0"></div><div><label for="kerosene-price" class="block text-sm font-medium text-gray-600 mb-1">料金単価 (円/L)</label><input type="number" id="kerosene-price" class="input-field" value="88"></div></div></div>
+                </div>
+        
+                <!-- Solar Input Section -->
+                <div class="mt-8">
+                    <div class="card p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="bg-green-100 p-2 rounded-full mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg></div>
+                            <h2 class="text-xl font-semibold text-gray-700">太陽光発電</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                            <div>
+                                <label for="solar-self-consumption-mj" class="block text-sm font-medium text-gray-600 mb-1">自家消費分の一次エネルギー削減量 (MJ/年)</label>
+                                <input type="number" id="solar-self-consumption-mj" class="input-field" value="16057">
+                            </div>
+                            <div>
+                                <label for="solar-sale-mj" class="block text-sm font-medium text-gray-600 mb-1">売電分の一次エネルギー発電量 (MJ/年)</label>
+                                <input type="number" id="solar-sale-mj" class="input-field" value="32699">
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t">
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">売電単価の設定 (円/kWh)</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="sale-price-tiers">
+                                <label class="price-tier-label"><input type="radio" name="sale-tier" value="0" class="mr-3" checked><div>1～4年<input type="number" id="sale-price-1" class="input-field mt-1" value="24" step="0.1"></div></label>
+                                <label class="price-tier-label"><input type="radio" name="sale-tier" value="1" class="mr-3"><div>5～10年<input type="number" id="sale-price-2" class="input-field mt-1" value="8.3" step="0.1"></div></label>
+                                <label class="price-tier-label"><input type="radio" name="sale-tier" value="2" class="mr-3"><div>11年～<input type="number" id="sale-price-3" class="input-field mt-1" value="8" step="0.1"></div></label>
+                            </div>
+                        </div>
+                         <p class="text-xs text-gray-500 mt-4">※一次エネルギーを電力量(kWh)に換算する係数として 9.76 MJ/kWh を使用します。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pdf-page-2" class="pdf-page-break mt-8">
+                <!-- Result Section -->
+                <div id="annual-result-container" class="grid grid-cols-1 gap-8 mt-8">
+                    <div id="annual-result-card-container">
+                        <div class="card result-card p-6 md:p-8 text-center h-full flex flex-col justify-center">
+                            <h2 class="text-xl font-medium mb-4 opacity-80">最終的な年間光熱費</h2>
+                             <div class="space-y-2 text-left w-full">
+                                <div id="cost-tier-1" class="p-2 rounded-lg transition-all duration-300">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-semibold text-base">① 1～4年:</span>
+                                        <span id="total-cost-tier-1" class="text-xl font-bold">... 円</span>
+                                    </div>
+                                </div>
+                                <div id="cost-tier-2" class="p-2 rounded-lg transition-all duration-300">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-semibold text-base">② 5～10年:</span>
+                                        <span id="total-cost-tier-2" class="text-xl font-bold">... 円</span>
+                                    </div>
+                                </div>
+                                <div id="cost-tier-3" class="p-2 rounded-lg transition-all duration-300">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-semibold text-base">③ 11年～:</span>
+                                        <span id="total-cost-tier-3" class="text-xl font-bold">... 円</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+        
+                     <!-- Chart Section -->
+                    <div id="annual-chart-container" class="card p-6">
+                         <h2 class="text-xl font-semibold text-gray-700 text-center mb-4">年間光熱費 比較グラフ</h2>
+                        <div class="relative h-full min-h-[300px] md:min-h-[400px]">
+                            <canvas id="cost-comparison-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pdf-page-3" class="pdf-page-break mt-8">
+                <!-- Initial Investment Section -->
+                <div class="mt-8">
+                    <div class="card p-6">
+                         <h2 class="text-xl font-semibold text-gray-700 mb-4">初期費用の設定</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                            <div>
+                                <label for="initial-investment" class="block text-sm font-medium text-gray-600 mb-1">初期投資差額（円）（高断熱＋高効率設備＋太陽光）</label>
+                                <input type="number" id="initial-investment" class="input-field" value="2800000" step="10000">
+                            </div>
+                            <div>
+                                <label for="subsidy" class="block text-sm font-medium text-gray-600 mb-1">補助金 (円)</label>
+                                <input type="number" id="subsidy" class="input-field" value="1600000" step="10000">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Cumulative Chart Section -->
+                <div class="mt-8 card p-6">
+                     <h2 class="text-xl font-semibold text-gray-700 text-center mb-4">35年間 累積光熱費 比較グラフ</h2>
+                    <div class="relative h-[400px] md:h-[500px]">
+                        <canvas id="cumulative-cost-chart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Cumulative Calculation Basis Table -->
+                <div class="mt-8 card p-6">
+                    <h2 class="text-xl font-semibold text-gray-700 text-center mb-4">35年間 累積計算根拠</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">項目</th>
+                                    <th scope="col" class="px-6 py-3 text-right">10年後</th>
+                                    <th scope="col" class="px-6 py-3 text-right">20年後</th>
+                                    <th scope="col" class="px-6 py-3 text-right">35年後</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="bg-white border-b">
+                                    <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">太陽光なし 累積光熱費</td>
+                                    <td id="cum-table-without-solar-10" class="px-6 py-4 text-right font-mono">...</td>
+                                    <td id="cum-table-without-solar-20" class="px-6 py-4 text-right font-mono">...</td>
+                                    <td id="cum-table-without-solar-35" class="px-6 py-4 text-right font-mono">...</td>
+                                </tr>
+                                <tr class="bg-gray-50 border-b">
+                                    <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">太陽光あり 累積光熱費</td>
+                                    <td id="cum-table-with-solar-10" class="px-6 py-4 text-right font-mono">...</td>
+                                    <td id="cum-table-with-solar-20" class="px-6 py-4 text-right font-mono">...</td>
+                                    <td id="cum-table-with-solar-35" class="px-6 py-4 text-right font-mono">...</td>
+                                </tr>
+                                <tr class="bg-white font-bold">
+                                    <td class="px-6 py-4 text-green-600">経済メリット（差額）</td>
+                                    <td id="cum-table-savings-10" class="px-6 py-4 text-right font-mono text-green-600">...</td>
+                                    <td id="cum-table-savings-20" class="px-6 py-4 text-right font-mono text-green-600">...</td>
+                                    <td id="cum-table-savings-35" class="px-6 py-4 text-right font-mono text-green-600">...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="action-buttons" class="flex justify-center items-center space-x-4 my-8">
+            <button id="reset-button" class="btn btn-secondary">初期値に戻す</button>
+            <button id="save-pdf-button" class="btn">PDFで保存</button>
+        </div>
+        
+        <!-- Disclaimer -->
+        <footer class="text-center mb-10 text-xs text-gray-500">
+            <p>※ このシミュレーションは提供されたPDFファイルのデータを基にした参考値です。</p>
+            <p>※ 実際の光熱費は、ご家庭の生活スタイル、契約プラン、燃料調整費などによって変動します。</p>
+        </footer>
+    </div>
+
+
+    <script>
+        // DOM Elements
+        const inputs = {
+            residenceName: document.getElementById('residence-name'),
+            powerConsumption: document.getElementById('power-consumption'),
+            electricityPrice: document.getElementById('electricity-price'),
+            gasConsumption: document.getElementById('gas-consumption'),
+            gasPrice: document.getElementById('gas-price'),
+            lpgasConsumption: document.getElementById('lpgas-consumption'),
+            lpgasPrice: document.getElementById('lpgas-price'),
+            keroseneConsumption: document.getElementById('kerosene-consumption'),
+            kerosenePrice: document.getElementById('kerosene-price'),
+            solarSelfConsumptionMj: document.getElementById('solar-self-consumption-mj'),
+            solarSaleMj: document.getElementById('solar-sale-mj'),
+            saleTiers: document.querySelectorAll('input[name="sale-tier"]'),
+            salePrices: [
+                document.getElementById('sale-price-1'),
+                document.getElementById('sale-price-2'),
+                document.getElementById('sale-price-3'),
+            ],
+            initialInvestment: document.getElementById('initial-investment'),
+            subsidy: document.getElementById('subsidy')
+        };
+
+        const outputs = {
+            costTier1: document.getElementById('cost-tier-1'),
+            costTier2: document.getElementById('cost-tier-2'),
+            costTier3: document.getElementById('cost-tier-3'),
+            totalCostTier1: document.getElementById('total-cost-tier-1'),
+            totalCostTier2: document.getElementById('total-cost-tier-2'),
+            totalCostTier3: document.getElementById('total-cost-tier-3'),
+            cumTable: {
+                without10: document.getElementById('cum-table-without-solar-10'),
+                without20: document.getElementById('cum-table-without-solar-20'),
+                without35: document.getElementById('cum-table-without-solar-35'),
+                with10: document.getElementById('cum-table-with-solar-10'),
+                with20: document.getElementById('cum-table-with-solar-20'),
+                with35: document.getElementById('cum-table-with-solar-35'),
+                savings10: document.getElementById('cum-table-savings-10'),
+                savings20: document.getElementById('cum-table-savings-20'),
+                savings35: document.getElementById('cum-table-savings-35'),
+            }
+        };
+
+        const resetButton = document.getElementById('reset-button');
+        const savePdfButton = document.getElementById('save-pdf-button');
+        const chartCanvas = document.getElementById('cost-comparison-chart');
+        const cumulativeChartCanvas = document.getElementById('cumulative-cost-chart');
+
+
+        const initialValues = {
+            residenceName: "〇〇様邸",
+            power: 3339,
+            elecPrice: 27,
+            gas: 672,
+            gasPrice: 156,
+            lpgas: 0,
+            lpgasPrice: 706,
+            kerosene: 0,
+            kerosenePrice: 88,
+            solarSelfConsumptionMj: 16057,
+            solarSaleMj: 32699,
+            salePrices: [24, 8.3, 8],
+            saleTier: 0,
+            initialInvestment: 2800000,
+            subsidy: 1600000,
+        };
+        
+        let costChart = null;
+        let cumulativeCostChart = null;
+        const MJ_PER_KWH = 9.76;
+
+        // Register the datalabels plugin globally
+        Chart.register(ChartDataLabels);
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('ja-JP').format(Math.round(num));
+        }
+
+        function calculateCosts() {
+            // Get values from inputs
+            const v = {
+                power: parseFloat(inputs.powerConsumption.value) || 0,
+                elecPrice: parseFloat(inputs.electricityPrice.value) || 0,
+                gas: parseFloat(inputs.gasConsumption.value) || 0,
+                gasPrice: parseFloat(inputs.gasPrice.value) || 0,
+                lpgas: parseFloat(inputs.lpgasConsumption.value) || 0,
+                lpgasPrice: parseFloat(inputs.lpgasPrice.value) || 0,
+                kerosene: parseFloat(inputs.keroseneConsumption.value) || 0,
+                kerosenePrice: parseFloat(inputs.kerosenePrice.value) || 0,
+                solarSelfMj: parseFloat(inputs.solarSelfConsumptionMj.value) || 0,
+                solarSaleMj: parseFloat(inputs.solarSaleMj.value) || 0,
+                salePrices: inputs.salePrices.map(el => parseFloat(el.value) || 0),
+                initialInvestment: parseFloat(inputs.initialInvestment.value) || 0,
+                subsidy: parseFloat(inputs.subsidy.value) || 0
+            };
+
+            // Calculate base costs (other than electricity)
+            const gasCost = v.gas * v.gasPrice;
+            const lpgasCost = v.lpgas * v.lpgasPrice;
+            const keroseneCost = v.kerosene * v.kerosenePrice;
+            const otherCosts = gasCost + lpgasCost + keroseneCost;
+            
+            // Calculate solar benefits (annual)
+            const solarSelfKwh = v.solarSelfMj / MJ_PER_KWH;
+            const selfConsumptionSaving = solarSelfKwh * v.elecPrice;
+            
+            // Calculate electricity costs
+            const powerConsumptionWithoutSolar = v.power + solarSelfKwh;
+            const electricityCostWithoutSolar = powerConsumptionWithoutSolar * v.elecPrice;
+            
+            // Calculate total cost without solar (annual)
+            const totalCostWithoutSolar = electricityCostWithoutSolar + otherCosts;
+            
+            // --- Annual Calculation for each tier---
+            const solarSaleKwh = v.solarSaleMj / MJ_PER_KWH;
+
+            const saleIncome1 = solarSaleKwh * v.salePrices[0];
+            const totalCostWithSolar1 = totalCostWithoutSolar - selfConsumptionSaving - saleIncome1;
+            
+            const saleIncome2 = solarSaleKwh * v.salePrices[1];
+            const totalCostWithSolar2 = totalCostWithoutSolar - selfConsumptionSaving - saleIncome2;
+
+            const saleIncome3 = solarSaleKwh * v.salePrices[2];
+            const totalCostWithSolar3 = totalCostWithoutSolar - selfConsumptionSaving - saleIncome3;
+
+            // Update annual text displays
+            outputs.totalCostTier1.textContent = `${formatNumber(totalCostWithSolar1)} 円`;
+            outputs.totalCostTier2.textContent = `${formatNumber(totalCostWithSolar2)} 円`;
+            outputs.totalCostTier3.textContent = `${formatNumber(totalCostWithSolar3)} 円`;
+            
+            const currentSaleTierIndex = document.querySelector('input[name="sale-tier"]:checked').value;
+            const tierDivs = [outputs.costTier1, outputs.costTier2, outputs.costTier3];
+            tierDivs.forEach((div, index) => {
+                if (index == currentSaleTierIndex) {
+                    div.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                    div.style.transform = 'scale(1.02)';
+                } else {
+                    div.style.backgroundColor = 'transparent';
+                    div.style.transform = 'scale(1)';
+                }
+            });
+
+            // Update annual bar chart based on currently selected tier
+            const currentSaleIncome = solarSaleKwh * v.salePrices[currentSaleTierIndex];
+            const currentTotalCostWithSolar = totalCostWithoutSolar - selfConsumptionSaving - currentSaleIncome;
+            updateChart(totalCostWithoutSolar, currentTotalCostWithSolar, selfConsumptionSaving, currentSaleIncome);
+            
+            // --- 35-Year Cumulative Calculation ---
+            const netInitialCost = v.initialInvestment - v.subsidy;
+            const cumulativeWithoutSolar = [0];
+            const cumulativeWithSolar = [netInitialCost];
+
+            for (let year = 1; year <= 35; year++) {
+                let salePriceThisYear;
+                if (year <= 4) salePriceThisYear = v.salePrices[0];
+                else if (year <= 10) salePriceThisYear = v.salePrices[1];
+                else salePriceThisYear = v.salePrices[2];
+                
+                const saleIncomeThisYear = solarSaleKwh * salePriceThisYear;
+                const annualCostWithSolar = totalCostWithoutSolar - selfConsumptionSaving - saleIncomeThisYear;
+                
+                cumulativeWithoutSolar.push(cumulativeWithoutSolar[year-1] + totalCostWithoutSolar);
+                cumulativeWithSolar.push(cumulativeWithSolar[year-1] + annualCostWithSolar);
+            }
+            
+            updateCumulativeChart(cumulativeWithoutSolar, cumulativeWithSolar);
+            updateCumulativeTable(cumulativeWithoutSolar, cumulativeWithSolar);
+        }
+        
+        function updateChart(costWithoutSolar, costWithSolar, selfConsumptionSaving, saleIncome) {
+            if (costChart) { costChart.destroy(); }
+            const ctx = chartCanvas.getContext('2d');
+            costChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['太陽光なし', '太陽光あり'],
+                    datasets: [
+                        { label: '最終支払額', data: [costWithoutSolar, costWithSolar > 0 ? costWithSolar : 0], backgroundColor: 'rgba(102, 126, 234, 0.7)'},
+                        { label: '売電による収入額', data: [0, saleIncome], backgroundColor: 'rgba(54, 162, 235, 0.7)'},
+                        { label: '自家消費による削減額', data: [0, selfConsumptionSaving], backgroundColor: 'rgba(74, 222, 128, 0.7)'}
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { callback: value => value.toLocaleString('ja-JP') + ' 円' } } },
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Math.round(c.parsed.y).toLocaleString('ja-JP')} 円` } },
+                        datalabels: { display: c => c.dataset.data[c.dataIndex] > 0, anchor: 'center', align: 'center', color: 'white', font: { weight: 'bold' }, formatter: v => formatNumber(v) + '円' }
+                    }
+                }
+            });
+        }
+        
+        function updateCumulativeChart(dataWithout, dataWith) {
+            if (cumulativeCostChart) { cumulativeCostChart.destroy(); }
+            const ctx = cumulativeChartCanvas.getContext('2d');
+            cumulativeCostChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 36}, (_, i) => i), // 0 to 35 years
+                    datasets: [
+                        { label: '太陽光なし', data: dataWithout, borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: false, borderWidth: 2, pointRadius: 0 },
+                        { label: '太陽光あり', data: dataWith, borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.2)', fill: false, borderWidth: 2, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { datalabels: { display: false }, legend: { position: 'top' } },
+                    scales: { y: { ticks: { callback: value => `${(value / 10000).toLocaleString()}万円` } } , x: { title: { display: true, text: '経過年数' } } }
+                }
+            });
+        }
+        
+        function updateCumulativeTable(dataWithout, dataWith) {
+            const years = [10, 20, 35];
+            const ids = [outputs.cumTable.without10, outputs.cumTable.without20, outputs.cumTable.without35, outputs.cumTable.with10, outputs.cumTable.with20, outputs.cumTable.with35, outputs.cumTable.savings10, outputs.cumTable.savings20, outputs.cumTable.savings35];
+            
+            let i = 0;
+            for(const year of years) { ids[i++].textContent = `${formatNumber(dataWithout[year])} 円`; }
+            for(const year of years) { ids[i++].textContent = `${formatNumber(dataWith[year])} 円`; }
+            for(const year of years) { ids[i++].textContent = `${formatNumber(dataWithout[year] - dataWith[year])} 円`; }
+        }
+        
+        function resetValues() {
+            Object.keys(initialValues).forEach(key => {
+                if(inputs[key]) {
+                    if (key === 'salePrices') {
+                        initialValues.salePrices.forEach((price, index) => {
+                            inputs.salePrices[index].value = price;
+                        });
+                    } else if (key === 'saleTier') {
+                        inputs.saleTiers[initialValues.saleTier].checked = true;
+                    } else if(typeof inputs[key].value !== 'undefined') {
+                        inputs[key].value = initialValues[key];
+                    }
+                }
+            });
+            calculateCosts();
+        }
+        
+        async function saveAsPdf() {
+            const pdfButton = document.getElementById('save-pdf-button');
+            const originalText = pdfButton.textContent;
+            pdfButton.textContent = '作成中...';
+            pdfButton.disabled = true;
+
+            const residenceName = inputs.residenceName.value || 'シミュレーション結果';
+            const date = new Date().toISOString().split('T')[0];
+            const fileName = `${residenceName}_目安光熱費シミュレーション_${date}.pdf`;
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'pt',
+                format: 'a4'
+            });
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const margin = 57; // ~2cm in points
+            const contentWidth = pdfWidth - (margin * 2);
+
+            // Force chart animations to finish instantly for the capture
+            Chart.defaults.animation = false;
+            recalculateAndRedraw();
+
+            try {
+                const pages = ['pdf-page-1', 'pdf-page-2', 'pdf-page-3'];
+                for (let i = 0; i < pages.length; i++) {
+                    const pageElement = document.getElementById(pages[i]);
+                    if (pageElement.clientHeight > 0) {
+                        if (i > 0) pdf.addPage();
+                        const canvas = await html2canvas(pageElement, { scale: 2, useCORS: true, windowWidth: 1200 });
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgHeight = canvas.height * contentWidth / canvas.width;
+                        pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, imgHeight);
+                    }
+                }
+                pdf.save(fileName);
+            } catch (err) {
+                console.error("PDFの作成に失敗しました:", err);
+            } finally {
+                // Restore everything
+                Chart.defaults.animation = {};
+                recalculateAndRedraw();
+                pdfButton.textContent = originalText;
+                pdfButton.disabled = false;
+            }
+        }
+        
+        // Wrapper to force redraw
+        function recalculateAndRedraw() {
+            // Destroy existing charts
+            if (costChart) costChart.destroy();
+            if (cumulativeCostChart) cumulativeCostChart.destroy();
+            // Recalculate and draw everything
+            calculateCosts();
+        }
+
+        // Add event listeners
+        const allListenerElements = [
+            inputs.residenceName,
+            inputs.powerConsumption, inputs.electricityPrice,
+            inputs.gasConsumption, inputs.gasPrice,
+            inputs.lpgasConsumption, inputs.lpgasPrice,
+            inputs.keroseneConsumption, inputs.kerosenePrice,
+            inputs.solarSelfConsumptionMj, inputs.solarSaleMj,
+            inputs.initialInvestment, inputs.subsidy,
+            ...inputs.salePrices, // Spread array of elements
+            ...inputs.saleTiers,  // Spread NodeList of elements
+        ];
+
+        allListenerElements.forEach(input => {
+            if(input) {
+                const eventType = input.type === 'radio' ? 'change' : 'input';
+                input.addEventListener(eventType, calculateCosts);
+            }
+        });
+        
+        resetButton.addEventListener('click', resetValues);
+        savePdfButton.addEventListener('click', saveAsPdf);
+        window.addEventListener('DOMContentLoaded', calculateCosts);
+    </script>
+</body>
+</html>
